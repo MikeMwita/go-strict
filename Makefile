@@ -158,3 +158,8 @@ linters:
 	@govulncheck ./...
 	@echo "──── go-consistent"
 	@go-consistent ./...
+
+
+## test: run all tests
+#cd testdata then git clone https://github.com/mmcgrana/gobyexample.git
+#then run this command : go run initializers/main.go testdata/gobyexample
