@@ -7,8 +7,10 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Linter is an interface that defines the linting methods
@@ -39,6 +41,9 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 	// create a file set to parse the files
 	fset := token.NewFileSet()
 
+	// create some variables to keep track of the statistics
+	var fileCount, funcCount, totalComplexity, maxComplexity, complexLineCount int
+
 	// iterate over the files or directories
 	for _, file := range files {
 		// get the file info
@@ -60,7 +65,18 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 				// parse the Go file
 				f, err := parser.ParseFile(fset, goFile, nil, parser.ParseComments)
 				if err != nil {
-					return nil, err
+					// create a lint result with the file error
+					result := &datamodels.LintResult{
+						File:     goFile,
+						Message:  err.Error(),
+						Severity: "error",
+					}
+
+					// append the result to the slice
+					results = append(results, result)
+
+					// continue with the next file
+					continue
 				}
 
 				// lint the Go file
@@ -71,12 +87,26 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 
 				// append the file results to the slice
 				results = append(results, fileResults...)
+
+				// update the file count
+				fileCount++
 			}
 		} else {
 			// parse the file
 			f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 			if err != nil {
-				return nil, err
+				// create a lint result with the file error
+				result := &datamodels.LintResult{
+					File:     file,
+					Message:  err.Error(),
+					Severity: "error",
+				}
+
+				// append the result to the slice
+				results = append(results, result)
+
+				// continue with the next file
+				continue
 			}
 
 			// lint the file
@@ -87,14 +117,30 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 
 			// append the file results to the slice
 			results = append(results, fileResults...)
+
+			// update the file count
+			fileCount++
 		}
 	}
+
+	// calculate the average complexity
+	avgComplexity := float64(totalComplexity) / float64(funcCount)
+
+	// format the statistics as a string
+	stats := fmt.Sprintf("%d = files\n%d = functions\n%d = highest complexity\n%.2f = overall average complexity per function\n%d = complex lines\n", fileCount, funcCount, maxComplexity, avgComplexity, complexLineCount)
+
+	// create a lint result with the statistics
+	result := &datamodels.LintResult{
+		Message: stats,
+	}
+
+	// append the result to the slice
+	results = append(results, result)
 
 	// return the linting results
 	return results, nil
 }
 
-// lintFile lints a single file
 func (ls *LinterService) lintFile(fset *token.FileSet, f *ast.File) ([]*datamodels.LintResult, error) {
 	// create a slice to store the file results
 	var fileResults []*datamodels.LintResult
@@ -149,9 +195,70 @@ func (ls *LinterService) lintFunction(fset *token.FileSet, funcDecl *ast.FuncDec
 		// create a lint result
 		result := &datamodels.LintResult{
 			Line:     fset.Position(funcDecl.Pos()).Line,
-			Message:  fmt.Sprintf("function has a cognitive complexity of %d which is higher than the threshold of %d", complexity, ls.config.Threshold),
 			Severity: "warning",
 		}
+
+		// create a slice to store the complexity details
+		var details []string
+
+		// format the complexity score for the function
+		details = append(details, fmt.Sprintf("function has a cognitive complexity of %d which is higher than the threshold of %d", complexity, ls.config.Threshold))
+
+		// traverse the function body and get the complexity details for each statement
+		ast.Inspect(funcDecl.Body, func(n ast.Node) bool {
+			// check the type and value of the node
+			switch node := n.(type) {
+			case *ast.IfStmt:
+				// get the line number and the complexity score for the if statement
+				line := fset.Position(node.Pos()).Line
+				score := ls.complexity.If(node)
+
+				// format the complexity detail for the if statement
+				detail := fmt.Sprintf("+ %d (found 'if' at line: %d)", score, line)
+
+				// append the detail to the slice
+				details = append(details, detail)
+			case *ast.ForStmt, *ast.RangeStmt:
+				// get the line number and the complexity score for the loop statement
+				line := fset.Position(node.Pos()).Line
+				score := ls.complexity.Loop(node)
+
+				// format the complexity detail for the loop statement
+				detail := fmt.Sprintf("+ %d (found 'loop' at line: %d)", score, line)
+
+				// append the detail to the slice
+				details = append(details, detail)
+			case *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
+				// get the line number and the complexity score for the switch statement
+				line := fset.Position(node.Pos()).Line
+				score := ls.complexity.Switch(node)
+
+				// format the complexity detail for the switch statement
+				detail := fmt.Sprintf("+ %d (found 'switch' at line: %d)", score, line)
+
+				// append the detail to the slice
+				details = append(details, detail)
+			case *ast.CaseClause:
+				// get the line number and the complexity score for the case clause
+				line := fset.Position(node.Pos()).Line
+				score := ls.complexity.Case(node)
+
+				// format the complexity detail for the case clause
+				detail := fmt.Sprintf("+ %d (found 'case' at line: %d)", score, line)
+
+				// append the detail to the slice
+				details = append(details, detail)
+			// Add more cases for other statement types as needed
+
+			default:
+				return true
+			}
+
+			return true
+		})
+
+		// append the complexity details to the lint result
+		result.Message = fmt.Sprintf("%s\n%s", result.Message, strings.Join(details, "\n"))
 
 		// return the lint result
 		return result, nil
@@ -161,43 +268,68 @@ func (ls *LinterService) lintFunction(fset *token.FileSet, funcDecl *ast.FuncDec
 	return nil, nil
 }
 
-func (ls *LinterService) LintFunctions(functions []string) (interface{}, interface{}) {
+// LintFunctions lints the given functions
+func (ls *LinterService) LintFunctions(functions []string) ([]*datamodels.LintResult, error) {
+	// create a slice to store the linting results
+	var results []*datamodels.LintResult
 
-	return nil, nil
+	// create a file set to parse the functions
+	fset := token.NewFileSet()
+
+	// create a temporary file with the provided functions
+	tmpFile, err := createTempFile(functions)
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// parse the temporary file
+	f, err := parser.ParseFile(fset, tmpFile.Name(), nil, parser.ParseComments)
+	if err != nil {
+		return nil, err
+	}
+
+	// iterate over the declarations in the file
+	for _, decl := range f.Decls {
+		// check if the declaration is a function declaration
+		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
+			// lint the function
+			funcResult, err := ls.lintFunction(fset, funcDecl)
+			if err != nil {
+				// log the error and proceed to the next function
+				fmt.Printf("Error linting function %s: %v\n", funcDecl.Name.Name, err)
+				continue
+			}
+
+			// check if the function result is not nil
+			if funcResult != nil {
+				// append the function result to the slice
+				results = append(results, funcResult)
+			}
+		} else {
+			// log a warning for non-function declarations
+			fmt.Printf("Warning: unexpected declaration type %T\n", decl)
+		}
+	}
+
+	// return the linting results
+	return results, nil
 }
 
-// NodeCount is an analyzer that counts the number of each kind of node in a file.
-//var NodeCount = &analysis.Analyzer{
-//	Name: "nodecount",
-//	Doc:  "count the number of each kind of node in a file",
-//	Run:  runNodeCount,
-//}
-//
-//// runNodeCount is the run function of the NodeCount analyzer.
-//func runNodeCount(pass *analysis.Pass) (interface{}, error) {
-//	// Create a map to store the node counts.
-//	counts := make(map[string]int)
-//
-//	// Iterate over the files in the analysis unit.
-//	for _, file := range pass.Files {
-//		// Inspect the AST of the file.
-//		ast.Inspect(file, func(n ast.Node) bool {
-//			// If the node is nil, return false to stop the traversal.
-//			if n == nil {
-//				return false
-//			}
-//
-//			// Get the name of the node type.
-//			name := fmt.Sprintf("%T", n)
-//
-//			// Increment the count for the node type.
-//			counts[name]++
-//
-//			// Return true to continue the traversal.
-//			return true
-//		})
-//	}
+// createTempFile creates a temporary file with the provided function declarations
+func createTempFile(functions []string) (*os.File, error) {
+	tmpFile, err := ioutil.TempFile("", "tempfunctions*.go")
+	if err != nil {
+		return nil, err
+	}
+	defer tmpFile.Close()
 
-//	// Report the node counts as a result.
-//	return counts, nil
-//}
+	// write the function declarations to the temporary file
+	for _, function := range functions {
+		if _, err := tmpFile.WriteString(function + "\n\n"); err != nil {
+			return nil, err
+		}
+	}
+
+	return tmpFile, nil
+}
