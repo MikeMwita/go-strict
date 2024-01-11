@@ -1,6 +1,7 @@
 package linter
 
 import (
+	"errors"
 	"fmt"
 	"github.com/MikeMwita/go-strict/domain/datamodels"
 	"github.com/MikeMwita/go-strict/services/complexity"
@@ -21,19 +22,12 @@ type Linter interface {
 
 // LinterService is a service that implements the Linter interface
 type LinterService struct {
-	config     *datamodels.LintConfig // the linting configuration
-	complexity complexity.Complexity  // the complexity calculator
+	config     *datamodels.LintConfig
+	complexity *complexity.ComplexityService
+	fileCount  int
+	funcCount  int
 }
 
-// NewLinterService creates a new LinterService
-func NewLinterService(config *datamodels.LintConfig, complexity complexity.Complexity) *LinterService {
-	return &LinterService{
-		config:     config,
-		complexity: complexity,
-	}
-}
-
-// LintFiles lints the given files or directories
 func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, error) {
 	// create a slice to store the linting results
 	var results []*datamodels.LintResult
@@ -49,6 +43,8 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 		// get the file info
 		info, err := os.Stat(file)
 		if err != nil {
+			// print the error
+			fmt.Println("Error getting file info:", err)
 			return nil, err
 		}
 
@@ -57,14 +53,28 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 			// get all the Go files in the directory
 			goFiles, err := filepath.Glob(filepath.Join(file, "*.go"))
 			if err != nil {
+				// print the error
+				fmt.Println("Error getting Go files in directory:", err)
 				return nil, err
 			}
+
+			// print the files or directories that are passed as arguments
+			fmt.Println("Linting files or directories:", files)
+
+			// print the file info
+			fmt.Println("File info:", info)
+
+			// print the Go files in the directory
+			fmt.Println("Go files in the directory:", goFiles)
 
 			// lint each Go file in the directory
 			for _, goFile := range goFiles {
 				// parse the Go file
 				f, err := parser.ParseFile(fset, goFile, nil, parser.ParseComments)
 				if err != nil {
+					// print the error
+					fmt.Println("Error parsing Go file:", err)
+
 					// create a lint result with the file error
 					result := &datamodels.LintResult{
 						File:     goFile,
@@ -82,8 +92,13 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 				// lint the Go file
 				fileResults, err := ls.lintFile(fset, f)
 				if err != nil {
+					// print the error
+					fmt.Println("Error linting file:", err)
 					return nil, err
 				}
+
+				// print the file name and the function name
+				fmt.Println("File name:", goFile)
 
 				// append the file results to the slice
 				results = append(results, fileResults...)
@@ -95,6 +110,9 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 			// parse the file
 			f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 			if err != nil {
+				// print the error
+				fmt.Println("Error parsing Go file:", err)
+
 				// create a lint result with the file error
 				result := &datamodels.LintResult{
 					File:     file,
@@ -112,8 +130,13 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 			// lint the file
 			fileResults, err := ls.lintFile(fset, f)
 			if err != nil {
+				// print the error
+				fmt.Println("Error linting file:", err)
 				return nil, err
 			}
+
+			// print the file name and the function name
+			fmt.Println("File name:", file)
 
 			// append the file results to the slice
 			results = append(results, fileResults...)
@@ -137,6 +160,15 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 	// append the result to the slice
 	results = append(results, result)
 
+	// check if the results slice is empty
+	if len(results) == 0 {
+		// print a message indicating that no results were found
+		fmt.Println("No results were found")
+	} else {
+		// print the results slice
+		fmt.Println("Results:", results)
+	}
+
 	// return the linting results
 	return results, nil
 }
@@ -147,6 +179,20 @@ func (ls *LinterService) lintFile(fset *token.FileSet, f *ast.File) ([]*datamode
 
 	// get the file name
 	fileName := fset.File(f.Pos()).Name()
+
+	// check if the file name is valid and not empty
+	if fileName == "" {
+		return nil, errors.New("empty file name")
+	}
+
+	// check if the file exists and is not a directory
+	fileInfo, err := os.Stat(fileName)
+	if err != nil {
+		return nil, err
+	}
+	if fileInfo.IsDir() {
+		return nil, errors.New("file is a directory")
+	}
 
 	// iterate over the declarations in the file
 	for _, decl := range f.Decls {
@@ -173,102 +219,65 @@ func (ls *LinterService) lintFile(fset *token.FileSet, f *ast.File) ([]*datamode
 		}
 	}
 
-	// return the file results
-	return fileResults, nil
+	// increment the file count
+	ls.fileCount++
+
+	// return the file results only if they are not empty
+	if len(fileResults) > 0 {
+		return fileResults, nil
+	}
+
+	return nil, nil
 }
 
-// lintFunction lints a single function
+// Inside lintFunction function
 func (ls *LinterService) lintFunction(fset *token.FileSet, funcDecl *ast.FuncDecl) (*datamodels.LintResult, error) {
-	// check if the function has a body
 	if funcDecl.Body == nil {
 		return nil, nil
 	}
 
-	// calculate the complexity of the function
 	complexity, err := ls.complexity.Calculate(fset, funcDecl.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	// check if the complexity exceeds the threshold
+	fmt.Printf("Function: %s, Complexity: %d\n", funcDecl.Name.Name, complexity) // Added log statement
+
 	if complexity > ls.config.Threshold {
-		// create a lint result
 		result := &datamodels.LintResult{
 			Line:     fset.Position(funcDecl.Pos()).Line,
 			Severity: "warning",
 		}
-
-		// create a slice to store the complexity details
 		var details []string
-
-		// format the complexity score for the function
 		details = append(details, fmt.Sprintf("function has a cognitive complexity of %d which is higher than the threshold of %d", complexity, ls.config.Threshold))
 
-		// traverse the function body and get the complexity details for each statement
 		ast.Inspect(funcDecl.Body, func(n ast.Node) bool {
-			// check the type and value of the node
 			switch node := n.(type) {
-			case *ast.IfStmt:
-				// get the line number and the complexity score for the if statement
+			case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
 				line := fset.Position(node.Pos()).Line
-				score := ls.complexity.If(node)
-
-				// format the complexity detail for the if statement
-				detail := fmt.Sprintf("+ %d (found 'if' at line: %d)", score, line)
-
-				// append the detail to the slice
-				details = append(details, detail)
-			case *ast.ForStmt, *ast.RangeStmt:
-				// get the line number and the complexity score for the loop statement
-				line := fset.Position(node.Pos()).Line
-				score := ls.complexity.Loop(node)
-
-				// format the complexity detail for the loop statement
-				detail := fmt.Sprintf("+ %d (found 'loop' at line: %d)", score, line)
-
-				// append the detail to the slice
-				details = append(details, detail)
-			case *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
-				// get the line number and the complexity score for the switch statement
-				line := fset.Position(node.Pos()).Line
-				score := ls.complexity.Switch(node)
-
-				// format the complexity detail for the switch statement
-				detail := fmt.Sprintf("+ %d (found 'switch' at line: %d)", score, line)
-
-				// append the detail to the slice
+				score := ls.complexity.Complexity(node)
+				detail := fmt.Sprintf("+ %d (found at line: %d)", score, line)
 				details = append(details, detail)
 			case *ast.CaseClause:
-				// get the line number and the complexity score for the case clause
 				line := fset.Position(node.Pos()).Line
-				score := ls.complexity.Case(node)
-
-				// format the complexity detail for the case clause
+				score := ls.complexity.Complexity(node)
 				detail := fmt.Sprintf("+ %d (found 'case' at line: %d)", score, line)
-
-				// append the detail to the slice
 				details = append(details, detail)
-			// Add more cases for other statement types as needed
-
 			default:
 				return true
 			}
-
 			return true
 		})
 
-		// append the complexity details to the lint result
 		result.Message = fmt.Sprintf("%s\n%s", result.Message, strings.Join(details, "\n"))
-
-		// return the lint result
 		return result, nil
 	}
 
-	// return nil if the complexity is within the threshold
 	return nil, nil
 }
 
 // LintFunctions lints the given functions
+
 func (ls *LinterService) LintFunctions(functions []string) ([]*datamodels.LintResult, error) {
 	// create a slice to store the linting results
 	var results []*datamodels.LintResult
@@ -324,7 +333,7 @@ func createTempFile(functions []string) (*os.File, error) {
 	}
 	defer tmpFile.Close()
 
-	// write the function declarations to the temporary file
+	// writes the function declarations to the temporary file
 	for _, function := range functions {
 		if _, err := tmpFile.WriteString(function + "\n\n"); err != nil {
 			return nil, err
@@ -332,4 +341,11 @@ func createTempFile(functions []string) (*os.File, error) {
 	}
 
 	return tmpFile, nil
+}
+
+func NewLinterService(config *datamodels.LintConfig, complexity *complexity.ComplexityService) *LinterService {
+	return &LinterService{
+		config:     config,
+		complexity: complexity,
+	}
 }
