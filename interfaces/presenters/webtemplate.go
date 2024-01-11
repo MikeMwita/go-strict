@@ -35,7 +35,6 @@ func (wt *WebTemplate) Render(w http.ResponseWriter, results []*datamodels.LintR
 	if err != nil {
 		return err
 	}
-
 	// return nil if no error
 	return nil
 }
