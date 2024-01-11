@@ -7,11 +7,13 @@ import (
 )
 
 // LintController is a controller that handles the linting requests
+
 type LintController struct {
 	linterService linter.LinterService // the linter service
 }
 
 // NewLintController creates a new LintController
+
 func NewLintController(linterService linter.LinterService) *LintController {
 	return &LintController{
 		linterService: linterService,
@@ -19,6 +21,7 @@ func NewLintController(linterService linter.LinterService) *LintController {
 }
 
 // LintFiles is a handler that lints the given files or directories
+
 func (lc *LintController) LintFiles(c *gin.Context) {
 	// get the files or directories from the query parameters
 	files := c.QueryArray("files")
@@ -66,6 +69,5 @@ func (lc *LintController) LintFunctions(c *gin.Context) {
 		return
 	}
 
-	// return the linting results as JSON
 	c.JSON(http.StatusOK, results)
 }
