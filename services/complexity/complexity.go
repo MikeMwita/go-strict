@@ -10,7 +10,7 @@ type ComplexityService struct {
 	nesting int
 }
 
-// calculates complexity for any statement
+// calculates complexity for any statement(general)
 
 func (cs *ComplexityService) Complexity(stmt ast.Node) int {
 	// Complexity calculation for any statement
@@ -20,9 +20,6 @@ func (cs *ComplexityService) Complexity(stmt ast.Node) int {
 // calculates the complexity of a function body
 
 func (cs *ComplexityService) Calculate(fset *token.FileSet, node ast.Node) (int, error) {
-	// you can implement the complexity calculation logic here
-	// you can use the fset to get the file and line information
-	// you can use the node to traverse the abstract syntax tree of the function body
 
 	// Initializing complexity score
 	complexity := 1 // Starting with 1 as the base complexity
@@ -56,7 +53,7 @@ func (cs *ComplexityService) Calculate(fset *token.FileSet, node ast.Node) (int,
 			cs.nesting++
 
 			// traverse the loop statement body, init, post, and condition
-			// use n directly without type assertion
+
 			complexity, _ = cs.Calculate(fset, n.Body)
 			if n.Init != nil {
 				complexity, _ = cs.Calculate(fset, n.Init)
@@ -78,7 +75,7 @@ func (cs *ComplexityService) Calculate(fset *token.FileSet, node ast.Node) (int,
 			cs.nesting++
 
 			// traverse the loop statement body, key, value, and expression
-			// use n directly without type assertion
+			// NB: we are using  n directly without type assertion
 			complexity, _ = cs.Calculate(fset, n.Body)
 			if n.Key != nil {
 				complexity, _ = cs.Calculate(fset, n.Key)
@@ -98,7 +95,6 @@ func (cs *ComplexityService) Calculate(fset *token.FileSet, node ast.Node) (int,
 			cs.nesting++
 
 			// traverse the switch statement body, init, and tag
-			// use n directly without type assertion
 			switch n := n.(type) {
 			case *ast.SwitchStmt:
 				complexity, _ = cs.Calculate(fset, n.Body)
