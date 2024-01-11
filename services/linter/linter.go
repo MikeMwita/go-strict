@@ -53,7 +53,6 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 			// get all the Go files in the directory
 			goFiles, err := filepath.Glob(filepath.Join(file, "*.go"))
 			if err != nil {
-				// print the error
 				fmt.Println("Error getting Go files in directory:", err)
 				return nil, err
 			}
@@ -61,10 +60,8 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 			// print the files or directories that are passed as arguments
 			fmt.Println("Linting files or directories:", files)
 
-			// print the file info
 			fmt.Println("File info:", info)
 
-			// print the Go files in the directory
 			fmt.Println("Go files in the directory:", goFiles)
 
 			// lint each Go file in the directory
@@ -72,7 +69,6 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 				// parse the Go file
 				f, err := parser.ParseFile(fset, goFile, nil, parser.ParseComments)
 				if err != nil {
-					// print the error
 					fmt.Println("Error parsing Go file:", err)
 
 					// create a lint result with the file error
@@ -89,15 +85,13 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 					continue
 				}
 
-				// lint the Go file
+				// linting the Go file
 				fileResults, err := ls.lintFile(fset, f)
 				if err != nil {
-					// print the error
 					fmt.Println("Error linting file:", err)
 					return nil, err
 				}
 
-				// print the file name and the function name
 				fmt.Println("File name:", goFile)
 
 				// append the file results to the slice
@@ -110,10 +104,8 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 			// parse the file
 			f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 			if err != nil {
-				// print the error
 				fmt.Println("Error parsing Go file:", err)
 
-				// create a lint result with the file error
 				result := &datamodels.LintResult{
 					File:     file,
 					Message:  err.Error(),
@@ -130,12 +122,10 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 			// lint the file
 			fileResults, err := ls.lintFile(fset, f)
 			if err != nil {
-				// print the error
 				fmt.Println("Error linting file:", err)
 				return nil, err
 			}
 
-			// print the file name and the function name
 			fmt.Println("File name:", file)
 
 			// append the file results to the slice
