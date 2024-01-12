@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 	"github.com/BurntSushi/toml"
-	"github.com/MikeMwita/go-strict/domain/datamodels"
+	"github.com/MikeMwita/go-strict/datamodels"
 	"os"
 	"path/filepath"
 	"strings"
