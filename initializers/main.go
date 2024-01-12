@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/MikeMwita/go-strict/domain/datamodels"
+	"github.com/MikeMwita/go-strict/datamodels"
 	"github.com/MikeMwita/go-strict/infrastructure/config"
 	"github.com/MikeMwita/go-strict/services/complexity"
 	"github.com/MikeMwita/go-strict/services/linter"
