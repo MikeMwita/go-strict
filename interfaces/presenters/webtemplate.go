@@ -1,7 +1,7 @@
 package presenters
 
 import (
-	"github.com/MikeMwita/go-strict/domain/datamodels"
+	"github.com/MikeMwita/go-strict/datamodels"
 	"html/template"
 	"net/http"
 )
