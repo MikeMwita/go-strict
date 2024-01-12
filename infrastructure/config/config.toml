@@ -1,3 +1,2 @@
-[lint]
-rules = ["enable-unused", "enable-goconst", "disable-gocyclo", "disable-errcheck"]
-output = "json"
+LINTER_RULES = ["enable-unused", "enable-goconst", "disable-gocyclo", "disable-errcheck"]
+LINTER_OUTPUT = "JSON"
