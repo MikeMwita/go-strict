@@ -3,7 +3,7 @@ package linter
 import (
 	"errors"
 	"fmt"
-	"github.com/MikeMwita/go-strict/domain/datamodels"
+	"github.com/MikeMwita/go-strict/datamodels"
 	"github.com/MikeMwita/go-strict/services/complexity"
 	"go/ast"
 	"go/parser"
