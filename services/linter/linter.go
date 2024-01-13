@@ -8,9 +8,10 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"io/ioutil"
+	"log"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -35,45 +36,28 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 	// create a file set to parse the files
 	fset := token.NewFileSet()
 
-	// create some variables to keep track of the statistics
-	var fileCount, funcCount, totalComplexity, maxComplexity, complexLineCount int
-
 	// iterate over the files or directories
 	for _, file := range files {
-		// get the file info
-		info, err := os.Stat(file)
-		if err != nil {
-			// print the error
-			fmt.Println("Error getting file info:", err)
-			return nil, err
-		}
-
-		// check if the file is a directory
-		if info.IsDir() {
-			// get all the Go files in the directory
-			goFiles, err := filepath.Glob(filepath.Join(file, "*.go"))
+		// walk the file tree rooted at the file path
+		err := fs.WalkDir(os.DirFS(file), ".", func(path string, d fs.DirEntry, err error) error {
+			// check for errors
 			if err != nil {
-				fmt.Println("Error getting Go files in directory:", err)
-				return nil, err
+				// log the error
+				log.Printf("Error walking file tree: %v", err)
+				return err
 			}
 
-			// print the files or directories that are passed as arguments
-			fmt.Println("Linting files or directories:", files)
-
-			fmt.Println("File info:", info)
-
-			fmt.Println("Go files in the directory:", goFiles)
-
-			// lint each Go file in the directory
-			for _, goFile := range goFiles {
+			// check if the file is a Go file
+			if strings.HasSuffix(d.Name(), ".go") {
 				// parse the Go file
-				f, err := parser.ParseFile(fset, goFile, nil, parser.ParseComments)
+				f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
 				if err != nil {
-					fmt.Println("Error parsing Go file:", err)
+					// log the error
+					log.Printf("Error parsing Go file %s: %v", path, err)
 
 					// create a lint result with the file error
 					result := &datamodels.LintResult{
-						File:     goFile,
+						File:     path,
 						Message:  err.Error(),
 						Severity: "error",
 					}
@@ -82,84 +66,37 @@ func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, er
 					results = append(results, result)
 
 					// continue with the next file
-					continue
+					return nil
 				}
 
-				// linting the Go file
+				// lint the Go file
 				fileResults, err := ls.lintFile(fset, f)
 				if err != nil {
-					fmt.Println("Error linting file:", err)
-					return nil, err
+					// log the error
+					log.Printf("Error linting file %s: %v", path, err)
+					return err
 				}
 
-				fmt.Println("File name:", goFile)
+				// log the file name
+				log.Printf("Linting file: %s", path)
 
 				// append the file results to the slice
 				results = append(results, fileResults...)
-
-				// update the file count
-				fileCount++
-			}
-		} else {
-			// parse the file
-			f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
-			if err != nil {
-				fmt.Println("Error parsing Go file:", err)
-
-				result := &datamodels.LintResult{
-					File:     file,
-					Message:  err.Error(),
-					Severity: "error",
-				}
-
-				// append the result to the slice
-				results = append(results, result)
-
-				// continue with the next file
-				continue
 			}
 
-			// lint the file
-			fileResults, err := ls.lintFile(fset, f)
-			if err != nil {
-				fmt.Println("Error linting file:", err)
-				return nil, err
-			}
+			// return nil to continue the traversal
+			return nil
+		})
 
-			fmt.Println("File name:", file)
-
-			// append the file results to the slice
-			results = append(results, fileResults...)
-
-			// update the file count
-			fileCount++
+		// check for errors
+		if err != nil {
+			// log the error
+			log.Printf("Error walking file tree: %v", err)
+			return nil, err
 		}
 	}
 
-	// calculate the average complexity
-	avgComplexity := float64(totalComplexity) / float64(funcCount)
-
-	// format the statistics as a string
-	stats := fmt.Sprintf("%d = files\n%d = functions\n%d = highest complexity\n%.2f = overall average complexity per function\n%d = complex lines\n", fileCount, funcCount, maxComplexity, avgComplexity, complexLineCount)
-
-	// create a lint result with the statistics
-	result := &datamodels.LintResult{
-		Message: stats,
-	}
-
-	// append the result to the slice
-	results = append(results, result)
-
-	// check if the results slice is empty
-	if len(results) == 0 {
-		// print a message indicating that no results were found
-		fmt.Println("No results were found")
-	} else {
-		// print the results slice
-		fmt.Println("Results:", results)
-	}
-
-	// return the linting results
+	// return the results and nil error
 	return results, nil
 }
 
