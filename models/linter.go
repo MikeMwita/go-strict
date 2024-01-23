@@ -1,4 +1,4 @@
-package datamodels
+package models
 
 type LintResult struct {
 	File     string `json:"file,omitempty"`
