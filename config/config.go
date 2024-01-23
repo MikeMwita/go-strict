@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 	"github.com/BurntSushi/toml"
-	"github.com/MikeMwita/go-strict/datamodels"
+	"github.com/MikeMwita/go-strict/models"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,22 +14,22 @@ type LinterConfig struct {
 	Output string   `toml:"output"`
 }
 
-func LoadConfig() (*datamodels.LintConfig, error) {
+// LoadConfig loads the linter configuration from the config.toml file
+func LoadConfig() (*models.LintConfig, error) {
 	configPath := filepath.Join(".", "config.toml")
 	if _, err := os.Stat(configPath); err == nil {
-		var config datamodels.LintConfig
+		var config models.LintConfig
 		if _, err := toml.DecodeFile(configPath, &config); err != nil {
 			return nil, err
 		}
 		return &config, nil
 	}
-	// loading the config from the environment variables
 	rules := os.Getenv("LINTER_RULES")
 	output := os.Getenv("LINTER_OUTPUT")
 	if rules != "" && output != "" {
-		config := datamodels.LintConfig{
+		config := models.LintConfig{
 			Rules:  strings.Split(rules, ","),
-			Output: strings.TrimSpace(output), // Trim spaces
+			Output: strings.TrimSpace(output),
 		}
 		return &config, nil
 	}
