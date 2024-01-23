@@ -440,9 +440,7 @@ func TestNewLinterService(t *testing.T) {
 		name string
 		args args
 		want *LinterService
-	}{
-		// TODO: Add test cases.
-	}
+	}{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NewLinterService(tt.args.config, tt.args.complexity); !reflect.DeepEqual(got, tt.want) {
@@ -461,9 +459,7 @@ func Test_createTempFile(t *testing.T) {
 		args    args
 		want    *os.File
 		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
+	}{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := createTempFile(tt.args.functions)

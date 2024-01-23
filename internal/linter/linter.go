@@ -15,13 +15,13 @@ import (
 	"strings"
 )
 
-// Linter is an interface that defines the linting methods
 type Linter interface {
-	LintFiles(files []string) ([]*datamodels.LintResult, error)         // lints the given files or directories
-	LintFunctions(functions []string) ([]*datamodels.LintResult, error) // lints the given functions
+	LintFiles(files []string) ([]*datamodels.LintResult, error)
+	LintFunctions(functions []string) ([]*datamodels.LintResult, error)
+	lintFile(fset *token.FileSet, f *ast.File) ([]*datamodels.LintResult, error)
+	lintFunction(fset *token.FileSet, funcDecl *ast.FuncDecl) (*datamodels.LintResult, error)
 }
 
-// LinterService is a service that implements the Linter interface
 type LinterService struct {
 	config     *datamodels.LintConfig
 	complexity *complexity.ComplexityService
@@ -30,65 +30,47 @@ type LinterService struct {
 }
 
 func (ls *LinterService) LintFiles(files []string) ([]*datamodels.LintResult, error) {
-	// create a slice to store the linting results
 	var results []*datamodels.LintResult
 
-	// create a file set to parse the files
 	fset := token.NewFileSet()
 
-	// iterate over the files or directories
 	for _, file := range files {
-		// walk the file tree rooted at the file path
 		err := fs.WalkDir(os.DirFS(file), ".", func(path string, d fs.DirEntry, err error) error {
-			// check for errors
 			if err != nil {
-				// log the error
 				log.Printf("Error walking file tree: %v", err)
 				return err
 			}
 
-			// check if the file is a Go file
 			if strings.HasSuffix(d.Name(), ".go") {
-				// parse the Go file
 				f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
 				if err != nil {
-					// log the error
 					log.Printf("Error parsing Go file %s: %v", path, err)
 
-					// create a lint result with the file error
 					result := &datamodels.LintResult{
 						File:     path,
 						Message:  err.Error(),
 						Severity: "error",
 					}
 
-					// append the result to the slice
 					results = append(results, result)
 
-					// continue with the next file
 					return nil
 				}
 
-				// lint the Go file
 				fileResults, err := ls.lintFile(fset, f)
 				if err != nil {
-					// log the error
 					log.Printf("Error linting file %s: %v", path, err)
 					return err
 				}
 
-				// log the file name
 				log.Printf("Linting file: %s", path)
 
-				// append the file results to the slice
 				results = append(results, fileResults...)
 			}
 
-			// return nil to continue the traversal
 			return nil
 		})
 
-		// check for errors
 		if err != nil {
 			// log the error
 			log.Printf("Error walking file tree: %v", err)
@@ -168,7 +150,7 @@ func (ls *LinterService) lintFunction(fset *token.FileSet, funcDecl *ast.FuncDec
 		return nil, err
 	}
 
-	fmt.Printf("Function: %s, Complexity: %d\n", funcDecl.Name.Name, complexity) // Added log statement
+	fmt.Printf("Function: %s, Complexity: %d\n", funcDecl.Name.Name, complexity)
 
 	if complexity > ls.config.Threshold {
 		result := &datamodels.LintResult{
@@ -196,7 +178,18 @@ func (ls *LinterService) lintFunction(fset *token.FileSet, funcDecl *ast.FuncDec
 			return true
 		})
 
-		result.Message = fmt.Sprintf("%s\n%s", result.Message, strings.Join(details, "\n"))
+		// Include complexity details in the result message
+		result.Message = fmt.Sprintf("%s (Complexity details:\n%s)", result.Message, strings.Join(details, "\n"))
+
+		cs := complexity.NewComplexityService()
+		complexityDetails, _ := cs.Calculate(fset, funcDecl.Body)
+		complexityFn := funcDecl.Name.Name
+		complexityFile := fset.Position(funcDecl.Pos()).Filename
+		complexityFnLine := fset.Position(funcDecl.Pos()).Line
+		complexityComplexity := complexityDetails
+		complexity.PrintComplexity(cs, fset, funcDecl)
+		fmt.Printf("Complexity details for function %s in file %s at line %d: %d\n", complexityFn, complexityFile, complexityFnLine, complexityComplexity)
+
 		return result, nil
 	}
 
@@ -247,8 +240,6 @@ func (ls *LinterService) LintFunctions(functions []string) ([]*datamodels.LintRe
 			fmt.Printf("Warning: unexpected declaration type %T\n", decl)
 		}
 	}
-
-	// return the linting results
 	return results, nil
 }
 
