@@ -1,18 +1,26 @@
 package presenters
 
 import (
-	"github.com/MikeMwita/go-strict/datamodels"
+	"github.com/MikeMwita/go-strict/models"
 	"html/template"
 	"net/http"
 )
 
-// WebTemplate is a presenter that renders the linting results as HTML
+// WebTemplate  renders the linting results as HTML
 
 type WebTemplate struct {
 	template *template.Template // the HTML template
 }
 
-// NewWebTemplate creates a new WebTemplate
+// Render renders the linting results as HTML to the given response writer
+func (wt *WebTemplate) Render(w http.ResponseWriter, results []*models.LintResult) error {
+	// execute the HTML template with the results
+	err := wt.template.Execute(w, results)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func NewWebTemplate(templatePath string) (*WebTemplate, error) {
 	// parse the HTML template from the given path
@@ -21,20 +29,7 @@ func NewWebTemplate(templatePath string) (*WebTemplate, error) {
 		return nil, err
 	}
 
-	// return a new WebTemplate
 	return &WebTemplate{
 		template: template,
 	}, nil
-}
-
-// Render renders the linting results as HTML to the given response writer
-
-func (wt *WebTemplate) Render(w http.ResponseWriter, results []*datamodels.LintResult) error {
-	// execute the HTML template with the results
-	err := wt.template.Execute(w, results)
-	if err != nil {
-		return err
-	}
-	// return nil if no error
-	return nil
 }
