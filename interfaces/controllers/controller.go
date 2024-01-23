@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"github.com/MikeMwita/go-strict/services/linter"
+	"github.com/MikeMwita/go-strict/internal/linter"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -10,12 +10,8 @@ type LintController struct {
 	linterService linter.LinterService // the linter service
 }
 
-// LintFiles is a handler that lints the given files or directories
-
 func (lc *LintController) LintFiles(c *gin.Context) {
-	// get the files or directories from the query parameters
 	files := c.QueryArray("files")
-
 	// check if the files or directories are given
 	if len(files) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -24,7 +20,6 @@ func (lc *LintController) LintFiles(c *gin.Context) {
 		return
 	}
 
-	// lint the files or directories using the linter service
 	results, err := lc.linterService.LintFiles(files)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -38,10 +33,8 @@ func (lc *LintController) LintFiles(c *gin.Context) {
 
 // LintFunctions is a handler that lints the given functions
 func (lc *LintController) LintFunctions(c *gin.Context) {
-	// get the functions from the query parameters
 	functions := c.QueryArray("functions")
 
-	// check if the functions are given
 	if len(functions) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "no functions given",
@@ -49,7 +42,6 @@ func (lc *LintController) LintFunctions(c *gin.Context) {
 		return
 	}
 
-	// lint the functions using the linter service
 	results, err := lc.linterService.LintFunctions(functions)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

@@ -1,7 +1,7 @@
 package linter
 
 import (
-	"github.com/MikeMwita/go-strict/datamodels"
+	"github.com/MikeMwita/go-strict/models"
 	"github.com/MikeMwita/go-strict/services/complexity"
 	"go/ast"
 	"go/parser"
@@ -13,7 +13,7 @@ import (
 
 func TestLinterService_LintFiles(t *testing.T) {
 	type fields struct {
-		config     *datamodels.LintConfig
+		config     *models.LintConfig
 		complexity *complexity.ComplexityService
 		fileCount  int
 		funcCount  int
@@ -25,13 +25,13 @@ func TestLinterService_LintFiles(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    []*datamodels.LintResult
+		want    []*models.LintResult
 		wantErr bool
 	}{
 		{
 			name: "Test valid Go file",
 			fields: fields{
-				config:     &datamodels.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
+				config:     &models.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -39,7 +39,7 @@ func TestLinterService_LintFiles(t *testing.T) {
 			args: args{
 				files: []string{"./testdata/valid.go"},
 			},
-			want: []*datamodels.LintResult{
+			want: []*models.LintResult{
 				{
 					File:     "./testdata/valid.go",
 					Message:  "No issues found",
@@ -51,7 +51,7 @@ func TestLinterService_LintFiles(t *testing.T) {
 		{
 			name: "Test invalid Go file",
 			fields: fields{
-				config:     &datamodels.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
+				config:     &models.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -59,7 +59,7 @@ func TestLinterService_LintFiles(t *testing.T) {
 			args: args{
 				files: []string{"./testdata/invalid.go"},
 			},
-			want: []*datamodels.LintResult{
+			want: []*models.LintResult{
 				{
 					File:     "./testdata/invalid.go",
 					Message:  "expected 'package', found 'EOF'",
@@ -71,7 +71,7 @@ func TestLinterService_LintFiles(t *testing.T) {
 		{
 			name: "Test directory with Go files",
 			fields: fields{
-				config:     &datamodels.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
+				config:     &models.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -79,7 +79,7 @@ func TestLinterService_LintFiles(t *testing.T) {
 			args: args{
 				files: []string{"./testdata"},
 			},
-			want: []*datamodels.LintResult{
+			want: []*models.LintResult{
 				{
 					File:     "./testdata/valid.go",
 					Message:  "No issues found",
@@ -116,7 +116,7 @@ func TestLinterService_LintFiles(t *testing.T) {
 
 func TestLinterService_LintFunctions(t *testing.T) {
 	type fields struct {
-		config     *datamodels.LintConfig
+		config     *models.LintConfig
 		complexity *complexity.ComplexityService
 		fileCount  int
 		funcCount  int
@@ -128,13 +128,13 @@ func TestLinterService_LintFunctions(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    []*datamodels.LintResult
+		want    []*models.LintResult
 		wantErr bool
 	}{
 		{
 			name: "Test valid function",
 			fields: fields{
-				config:     &datamodels.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
+				config:     &models.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -142,7 +142,7 @@ func TestLinterService_LintFunctions(t *testing.T) {
 			args: args{
 				functions: []string{"func Add(x, y int) int { return x + y }"},
 			},
-			want: []*datamodels.LintResult{
+			want: []*models.LintResult{
 				{
 					File:     "tmpfile.go",
 					Function: "Add",
@@ -155,7 +155,7 @@ func TestLinterService_LintFunctions(t *testing.T) {
 		{
 			name: "Test invalid function",
 			fields: fields{
-				config:     &datamodels.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
+				config:     &models.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -163,7 +163,7 @@ func TestLinterService_LintFunctions(t *testing.T) {
 			args: args{
 				functions: []string{"func Subtract(x, y int) int { return x - y }", "func Multiply(x, y int) int { return x * y }"},
 			},
-			want: []*datamodels.LintResult{
+			want: []*models.LintResult{
 				{
 					File:     "tmpfile.go",
 					Function: "Subtract",
@@ -182,7 +182,7 @@ func TestLinterService_LintFunctions(t *testing.T) {
 		{
 			name: "Test empty function",
 			fields: fields{
-				config:     &datamodels.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
+				config:     &models.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -216,7 +216,7 @@ func TestLinterService_LintFunctions(t *testing.T) {
 
 func TestLinterService_lintFile(t *testing.T) {
 	type fields struct {
-		config     *datamodels.LintConfig
+		config     *models.LintConfig
 		complexity *complexity.ComplexityService
 		fileCount  int
 		funcCount  int
@@ -229,13 +229,13 @@ func TestLinterService_lintFile(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    []*datamodels.LintResult
+		want    []*models.LintResult
 		wantErr bool
 	}{
 		{
 			name: "Test valid Go file",
 			fields: fields{
-				config:     &datamodels.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
+				config:     &models.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -244,7 +244,7 @@ func TestLinterService_lintFile(t *testing.T) {
 				fset: token.NewFileSet(),
 				f:    parseFile("./testdata/valid.go"),
 			},
-			want: []*datamodels.LintResult{
+			want: []*models.LintResult{
 				{
 					File:     "./testdata/valid.go",
 					Function: "Add",
@@ -263,7 +263,7 @@ func TestLinterService_lintFile(t *testing.T) {
 		{
 			name: "Test invalid Go file",
 			fields: fields{
-				config:     &datamodels.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
+				config:     &models.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -272,7 +272,7 @@ func TestLinterService_lintFile(t *testing.T) {
 				fset: token.NewFileSet(),
 				f:    parseFile("./testdata/invalid.go"),
 			},
-			want: []*datamodels.LintResult{
+			want: []*models.LintResult{
 				{
 					File:     "./testdata/invalid.go",
 					Function: "Multiply",
@@ -285,7 +285,7 @@ func TestLinterService_lintFile(t *testing.T) {
 		{
 			name: "Test empty file name",
 			fields: fields{
-				config:     &datamodels.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
+				config:     &models.LintConfig{MaxComplexity: 10, MaxLineLength: 80},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -330,7 +330,7 @@ func parseFile(filename string) *ast.File {
 
 func TestLinterService_lintFunction(t *testing.T) {
 	type fields struct {
-		config     *datamodels.LintConfig
+		config     *models.LintConfig
 		complexity *complexity.ComplexityService
 		fileCount  int
 		funcCount  int
@@ -343,13 +343,13 @@ func TestLinterService_lintFunction(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    *datamodels.LintResult
+		want    *models.LintResult
 		wantErr bool
 	}{
 		{
 			name: "Test simple function",
 			fields: fields{
-				config:     &datamodels.LintConfig{Threshold: 10},
+				config:     &models.LintConfig{Threshold: 10},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -364,7 +364,7 @@ func TestLinterService_lintFunction(t *testing.T) {
 		{
 			name: "Test complex function",
 			fields: fields{
-				config:     &datamodels.LintConfig{Threshold: 10},
+				config:     &models.LintConfig{Threshold: 10},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -373,7 +373,7 @@ func TestLinterService_lintFunction(t *testing.T) {
 				fset:     token.NewFileSet(),
 				funcDecl: parseFunction("func Fibonacci(n int) int { if n <= 1 { return n } return Fibonacci(n-1) + Fibonacci(n-2) }"),
 			},
-			want: &datamodels.LintResult{
+			want: &models.LintResult{
 				Line:     1,
 				Severity: "warning",
 				Message:  "function has a cognitive complexity of 11 which is higher than the threshold of 10\n+ 1 (found at line: 1)\n+ 1 (found 'if' at line: 1)\n+ 9 (found at line: 2)",
@@ -383,7 +383,7 @@ func TestLinterService_lintFunction(t *testing.T) {
 		{
 			name: "Test nil function",
 			fields: fields{
-				config:     &datamodels.LintConfig{Threshold: 10},
+				config:     &models.LintConfig{Threshold: 10},
 				complexity: &complexity.ComplexityService{},
 				fileCount:  0,
 				funcCount:  0,
@@ -433,16 +433,14 @@ func parseFunction(code string) *ast.FuncDecl {
 
 func TestNewLinterService(t *testing.T) {
 	type args struct {
-		config     *datamodels.LintConfig
+		config     *models.LintConfig
 		complexity *complexity.ComplexityService
 	}
 	tests := []struct {
 		name string
 		args args
 		want *LinterService
-	}{
-		// TODO: Add test cases.
-	}
+	}{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NewLinterService(tt.args.config, tt.args.complexity); !reflect.DeepEqual(got, tt.want) {
@@ -461,9 +459,7 @@ func Test_createTempFile(t *testing.T) {
 		args    args
 		want    *os.File
 		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
+	}{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := createTempFile(tt.args.functions)

@@ -1,4 +1,4 @@
-package datamodels
+package models
 
 type Result struct {
 	File     string
