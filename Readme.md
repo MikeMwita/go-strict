@@ -17,7 +17,7 @@ git clone https://github.com/MikeMwita/cognitive-complexity-linter.git
 To use this project, you can run the following command in the root directory of the project:
 
 ```bash
-go run initializers/main.go [options] [files]
+go run cmd/main.go [options] [files]
 ```
 
 The options are:
@@ -47,12 +47,6 @@ Function foo (main.go:20): 5
 
 
 
-## Contact
-
-If you have any questions or feedback, you can contact us at:
-
-- Email: michaelmasubo27@gmail.com
-- Twitter: [@mike_mwita](https://twitter.com/Mikemwita)
 
 ## License
 
