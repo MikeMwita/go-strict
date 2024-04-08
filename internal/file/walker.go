@@ -83,6 +83,7 @@ func DirExists(dirPath string) bool {
 }
 
 // Benchmark function
+
 func BenchmarkWalker(b *testing.B) {
 	rootDir, _ := RootDir()
 	// create some files first
