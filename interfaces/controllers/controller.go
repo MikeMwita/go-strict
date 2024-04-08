@@ -7,7 +7,7 @@ import (
 )
 
 type LintController struct {
-	linterService linter.LinterService // the linter service
+	linterService linter.LinterService
 }
 
 func (lc *LintController) LintFiles(c *gin.Context) {
