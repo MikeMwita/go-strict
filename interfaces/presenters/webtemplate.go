@@ -14,7 +14,6 @@ type WebTemplate struct {
 
 // Render renders the linting results as HTML to the given response writer
 func (wt *WebTemplate) Render(w http.ResponseWriter, results []*models.LintResult) error {
-	// execute the HTML template with the results
 	err := wt.template.Execute(w, results)
 	if err != nil {
 		return err
@@ -23,7 +22,6 @@ func (wt *WebTemplate) Render(w http.ResponseWriter, results []*models.LintResul
 }
 
 func NewWebTemplate(templatePath string) (*WebTemplate, error) {
-	// parse the HTML template from the given path
 	template, err := template.ParseFiles(templatePath)
 	if err != nil {
 		return nil, err

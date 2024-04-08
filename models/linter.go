@@ -11,7 +11,7 @@ type LintResult struct {
 type LintConfig struct {
 	Rules         []string `toml:"rules"`
 	Output        string   `toml:"output"`
-	Threshold     int
-	MaxComplexity int
-	MaxLineLength int
+	Threshold     int      `toml:"threshold"`
+	MaxComplexity int      `toml:"max_complexity"`
+	MaxLineLength int      `toml:"max_line_length"`
 }
