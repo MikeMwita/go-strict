@@ -15,7 +15,7 @@ import (
 )
 
 var outputFormats = map[string]func([]*models.LintResult){
-	"text": printText, // Custom text output to match the README example
+	"text": printText,
 	"json": printJSON,
 	"complexity": func(results []*models.LintResult) {
 		utils.PrintDetails(results, "complexity", true)
@@ -92,8 +92,8 @@ func Run() {
 	}
 
 	// Calculate summary statistics
-	fileCount := len(absArgs) // Number of files linted
-	funcCount := len(results) // Number of functions processed
+	fileCount := len(absArgs)
+	funcCount := len(results)
 	highestComplexity := 0
 	totalComplexity := 0
 	complexLineCount := 0
@@ -105,7 +105,7 @@ func Run() {
 		if complexity > highestComplexity {
 			highestComplexity = complexity
 		}
-		if complexity > 12 { // Example threshold for what counts as a "complex" line
+		if complexity > 12 {
 			complexLineCount++
 		}
 	}
@@ -119,7 +119,6 @@ func Run() {
 	fmt.Fprintf(output, "Overall average complexity per function: %.2f\n", avgComplexity)
 	fmt.Fprintf(output, "Number of complex lines: %d\n\n", complexLineCount)
 
-	// Print the results in the specified format
 	printResults(output, results, outputFormat)
 }
 
@@ -145,10 +144,9 @@ func printJSON(results []*models.LintResult) {
 	fmt.Println(string(data))
 }
 
-// printText prints the results in a detailed, structured format like the README example
+// printText prints the results in a detailed, structured format
 func printText(results []*models.LintResult) {
 	for _, result := range results {
-		// Print the basic information about the function
 		fmt.Printf("%s:%d:1 - %s\n", result.File, result.Line, result.Function)
 
 		// Extract and print the details of the complexity
@@ -158,7 +156,7 @@ func printText(results []*models.LintResult) {
 			for idx, line := range lines {
 				trimmedLine := strings.TrimSpace(line)
 				if trimmedLine != "" && trimmedLine != ")" {
-					// Print each detail correctly formatted
+
 					if strings.HasPrefix(trimmedLine, "+ 1 ") {
 						trimmedLine = strings.TrimPrefix(trimmedLine, "+ 1 ")
 					}

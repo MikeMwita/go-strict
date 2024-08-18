@@ -7,7 +7,6 @@ import (
 
 type Complexity interface {
 	Calculate(fset *token.FileSet, node ast.Node) (int, error)
-	//GetDetail(result *models.LintResult) string
 }
 
 type ComplexityCalculator interface {
