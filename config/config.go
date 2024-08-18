@@ -15,13 +15,13 @@ type LinterConfig struct {
 	Threshold int      `toml:"threshold"`
 }
 
-func LoadConfig(configPath string) (*models.LintConfig, error) { // Return *models.LintConfig
+func LoadConfig(configPath string) (*models.LintConfig, error) {
 	if configPath == "" {
 		configPath = filepath.Join(".", "config.toml")
 	}
 
 	if _, err := os.Stat(configPath); err == nil {
-		var config models.LintConfig // Use models.LintConfig instead of LinterConfig
+		var config models.LintConfig
 		if _, err := toml.DecodeFile(configPath, &config); err != nil {
 			return nil, err
 		}
@@ -31,7 +31,7 @@ func LoadConfig(configPath string) (*models.LintConfig, error) { // Return *mode
 	rules := os.Getenv("LINTER_RULES")
 	output := os.Getenv("LINTER_OUTPUT")
 	if rules != "" && output != "" {
-		config := models.LintConfig{ // Use models.LintConfig instead of LinterConfig
+		config := models.LintConfig{
 			Rules:  strings.Split(rules, ","),
 			Output: strings.TrimSpace(output),
 		}

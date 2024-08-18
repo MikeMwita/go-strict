@@ -11,12 +11,6 @@ type ComplexityService struct {
 	nesting int
 }
 
-func NewComplexityService() *ComplexityService {
-	return &ComplexityService{
-		nesting: 0,
-	}
-}
-
 func (cs *ComplexityService) Calculate(fset *token.FileSet, node ast.Node) (int, error) {
 	complexity := 1
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -40,4 +34,10 @@ func GetDetail(result *models.LintResult) string {
 	var details string
 	details += fmt.Sprintf(" (Complexity details:\n%s)", result.Message)
 	return details
+}
+
+func NewComplexityService() *ComplexityService {
+	return &ComplexityService{
+		nesting: 0,
+	}
 }
