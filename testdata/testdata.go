@@ -7,12 +7,18 @@ func main() {
 
 	if true {
 		fmt.Println("This condition is always true.")
-	} else {
-		fmt.Println("This block is never executed.")
+		if false {
+			fmt.Println("This block adds to complexity.")
+		} else if true {
+			fmt.Println("Another condition.")
+		}
 	}
 
 	for i := 0; i < 5; i++ {
 		fmt.Println("Iteration:", i)
+		if i > 2 {
+			fmt.Println("Complex loop.")
+		}
 	}
 
 	switch x := 2; x {
@@ -20,6 +26,9 @@ func main() {
 		fmt.Println("Case 1")
 	case 2:
 		fmt.Println("Case 2")
+		if true {
+			fmt.Println("Nested in switch")
+		}
 	default:
 		fmt.Println("Default case")
 	}
@@ -35,5 +44,8 @@ func complexFunction() {
 
 	for i := 0; i < 3; i++ {
 		fmt.Println("Nested loop:", i)
+		if i == 2 {
+			fmt.Println("Complex condition inside loop.")
+		}
 	}
 }
