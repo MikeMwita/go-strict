@@ -18,7 +18,10 @@ To use this project, you can run the following command in the root directory of 
 ```
 go run cmd/main.go [options] [files]
 ```
-
+Example:
+```
+go run cmd/main.go -c=config.toml -f=text testdata/   
+```
 The options are:
 
 - `-h` or `--help`: show the help message and exit
