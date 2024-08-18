@@ -1,11 +1,9 @@
 package linter
 
 import (
-	"errors"
 	"fmt"
 	"github.com/MikeMwita/go-strict/models"
 	"github.com/MikeMwita/go-strict/services/complexity"
-	"github.com/MikeMwita/go-strict/utils"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -19,8 +17,6 @@ import (
 type Linter interface {
 	LintFiles(files []string) ([]*models.LintResult, error)
 	LintFunctions(functions []string) ([]*models.LintResult, error)
-	lintFile(fset *token.FileSet, f *ast.File) ([]*models.LintResult, error)
-	lintFunction(fset *token.FileSet, funcDecl *ast.FuncDecl) (*models.LintResult, error)
 }
 
 type LinterService struct {
@@ -28,6 +24,32 @@ type LinterService struct {
 	complexity *complexity.ComplexityService
 	fileCount  int
 	funcCount  int
+}
+
+func NewLinterService(config *models.LintConfig, complexity *complexity.ComplexityService) *LinterService {
+	return &LinterService{
+		config:     config,
+		complexity: complexity,
+	}
+}
+
+func createTempFile(functions []string) (*os.File, error) {
+	tmpFile, err := ioutil.TempFile("", "tempfunctions*.go")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temporary file: %w", err)
+	}
+
+	for _, function := range functions {
+		if _, err := tmpFile.WriteString(function + "\n\n"); err != nil {
+			return nil, fmt.Errorf("failed to write to temporary file: %w", err)
+		}
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close temporary file: %w", err)
+	}
+
+	return tmpFile, nil
 }
 
 func (ls *LinterService) LintFiles(files []string) ([]*models.LintResult, error) {
@@ -42,28 +64,13 @@ func (ls *LinterService) LintFiles(files []string) ([]*models.LintResult, error)
 			}
 
 			if !info.IsDir() && strings.HasSuffix(info.Name(), ".go") {
-				f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+				fileResults, err := ls.lintGoFile(fset, path)
 				if err != nil {
-					log.Printf("Error parsing Go file %s: %v", path, err)
-					result := &models.LintResult{
-						File:     path,
-						Message:  err.Error(),
-						Severity: "error",
-					}
-					results = append(results, result)
-					return nil
-				}
-
-				fileResults, err := ls.lintFile(fset, f)
-				if err != nil {
-					log.Printf("Error linting file %s: %v", path, err)
+					log.Printf("Error linting Go file %s: %v", path, err)
 					return err
 				}
-
-				log.Printf("Linting file: %s", path)
 				results = append(results, fileResults...)
 			}
-
 			return nil
 		})
 
@@ -76,109 +83,10 @@ func (ls *LinterService) LintFiles(files []string) ([]*models.LintResult, error)
 	return results, nil
 }
 
-func (ls *LinterService) lintFile(fset *token.FileSet, f *ast.File) ([]*models.LintResult, error) {
-	var fileResults []*models.LintResult
-
-	fileName := fset.File(f.Pos()).Name()
-
-	if fileName == "" {
-		return nil, errors.New("empty file name")
-	}
-
-	fileInfo, err := os.Stat(fileName)
-	if err != nil {
-		return nil, err
-	}
-	if fileInfo.IsDir() {
-		return nil, errors.New("file is a directory")
-	}
-
-	for _, decl := range f.Decls {
-		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
-			funcName := funcDecl.Name.Name
-
-			// lint the function
-			funcResult, err := ls.lintFunction(fset, funcDecl)
-			if err != nil {
-				return nil, err
-			}
-
-			if funcResult != nil {
-				funcResult.File = fileName
-				funcResult.Function = funcName
-
-				fileResults = append(fileResults, funcResult)
-			}
-		}
-	}
-
-	ls.fileCount++
-
-	if len(fileResults) > 0 {
-		return fileResults, nil
-	}
-
-	return nil, nil
-}
-
-// lints the given function declaration
-
-func (ls *LinterService) lintFunction(fset *token.FileSet, funcDecl *ast.FuncDecl) (*models.LintResult, error) {
-	if funcDecl.Body == nil {
-		return nil, nil
-	}
-
-	complexityService := complexity.NewComplexityService()
-	complexity, err := complexityService.Calculate(fset, funcDecl.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("Function: %s, Complexity: %d\n", funcDecl.Name.Name, complexity)
-
-	if complexity > ls.config.Threshold {
-		result := &models.LintResult{
-			Line:     fset.Position(funcDecl.Pos()).Line,
-			Severity: "warning",
-		}
-		var details []string
-		details = append(details, fmt.Sprintf("function has a cognitive complexity of %d which is higher than the threshold of %d", complexity, ls.config.Threshold))
-
-		ast.Inspect(funcDecl.Body, func(n ast.Node) bool {
-			switch node := n.(type) {
-			case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
-				line := fset.Position(node.Pos()).Line
-				score := complexityService.Complexity(node)
-				detail := fmt.Sprintf("+ %d (found at line: %d)", score, line)
-				details = append(details, detail)
-			case *ast.CaseClause:
-				line := fset.Position(node.Pos()).Line
-				score := complexityService.Complexity(node)
-				detail := fmt.Sprintf("+ %d (found 'case' at line: %d)", score, line)
-				details = append(details, detail)
-			default:
-				return true
-			}
-			return true
-		})
-
-		result.Message = fmt.Sprintf("%s (Complexity details:\n%s)", result.Message, strings.Join(details, "\n"))
-
-		results := []*models.LintResult{result}
-
-		utils.PrintComplexity(results, "line-number", true)
-		fmt.Printf("Complexity details for function %s in file %s at line %d: %d\n", funcDecl.Name.Name, fset.Position(funcDecl.Pos()).Filename, fset.Position(funcDecl.Pos()).Line, complexity)
-
-		return result, nil
-	}
-	return nil, nil
-}
-
 func (ls *LinterService) LintFunctions(functions []string) ([]*models.LintResult, error) {
 	var results []*models.LintResult
 
 	fset := token.NewFileSet()
-
 	tmpFile, err := createTempFile(functions)
 	if err != nil {
 		return nil, err
@@ -194,41 +102,94 @@ func (ls *LinterService) LintFunctions(functions []string) ([]*models.LintResult
 		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
 			funcResult, err := ls.lintFunction(fset, funcDecl)
 			if err != nil {
-				fmt.Printf("Error linting function %s: %v\n", funcDecl.Name.Name, err)
+				log.Printf("Error linting function %s: %v", funcDecl.Name.Name, err)
 				continue
 			}
 
 			if funcResult != nil {
 				results = append(results, funcResult)
 			}
-		} else {
-			fmt.Printf("Warning: unexpected declaration type %T\n", decl)
 		}
 	}
+
 	return results, nil
 }
 
-// createTempFile creates a temporary file with the provided function declarations
-
-func createTempFile(functions []string) (*os.File, error) {
-	tmpFile, err := ioutil.TempFile("", "tempfunctions*.go")
+func (ls *LinterService) lintGoFile(fset *token.FileSet, filePath string) ([]*models.LintResult, error) {
+	f, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
 	if err != nil {
+		log.Printf("Error parsing Go file %s: %v", filePath, err)
 		return nil, err
 	}
-	defer tmpFile.Close()
 
-	for _, function := range functions {
-		if _, err := tmpFile.WriteString(function + "\n\n"); err != nil {
-			return nil, err
+	return ls.lintFile(fset, f)
+}
+
+func (ls *LinterService) lintFile(fset *token.FileSet, f *ast.File) ([]*models.LintResult, error) {
+	var fileResults []*models.LintResult
+	fileName := fset.File(f.Pos()).Name()
+
+	for _, decl := range f.Decls {
+		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
+			funcResult, err := ls.lintFunction(fset, funcDecl)
+			if err != nil {
+				return nil, err
+			}
+
+			if funcResult != nil {
+				funcResult.File = fileName
+				fileResults = append(fileResults, funcResult)
+			}
 		}
 	}
 
-	return tmpFile, nil
+	ls.fileCount++
+	return fileResults, nil
 }
 
-func NewLinterService(config *models.LintConfig, complexity *complexity.ComplexityService) *LinterService {
-	return &LinterService{
-		config:     config,
-		complexity: complexity,
+func (ls *LinterService) lintFunction(fset *token.FileSet, funcDecl *ast.FuncDecl) (*models.LintResult, error) {
+	if funcDecl.Body == nil {
+		return nil, nil
 	}
+
+	complexityScore, err := ls.complexity.Calculate(fset, funcDecl.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if complexityScore > ls.config.Threshold {
+		result := &models.LintResult{
+			File:     fset.Position(funcDecl.Pos()).Filename,
+			Line:     fset.Position(funcDecl.Pos()).Line,
+			Function: funcDecl.Name.Name,
+			Message:  fmt.Sprintf("function has a cognitive complexity of %d which is higher than the threshold of %d", complexityScore, ls.config.Threshold),
+			Severity: "warning",
+		}
+
+		details := ls.generateComplexityDetails(fset, funcDecl.Body)
+		result.Message = fmt.Sprintf("%s (Complexity details:\n%s)", result.Message, strings.Join(details, "\n"))
+
+		return result, nil
+	}
+	return nil, nil
+}
+
+func (ls *LinterService) generateComplexityDetails(fset *token.FileSet, body *ast.BlockStmt) []string {
+	var details []string
+	ast.Inspect(body, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
+			line := fset.Position(node.Pos()).Line
+			score := ls.complexity.Complexity(node)
+			detail := fmt.Sprintf("+ %d (found at line: %d)", score, line)
+			details = append(details, detail)
+		case *ast.CaseClause:
+			line := fset.Position(node.Pos()).Line
+			score := ls.complexity.Complexity(node)
+			detail := fmt.Sprintf("+ %d (found 'case' at line: %d)", score, line)
+			details = append(details, detail)
+		}
+		return true
+	})
+	return details
 }

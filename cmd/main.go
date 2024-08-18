@@ -1,7 +1,7 @@
 package main
 
-import "github.com/MikeMwita/go-strict/cmd/Code"
+import "github.com/MikeMwita/go-strict/cmd/code"
 
 func main() {
-	Code.Run()
+	code.Run()
 }

@@ -1,2 +1,2 @@
-LINTER_RULES = ["enable-unused", "enable-goconst", "disable-gocyclo", "disable-errcheck"]
-LINTER_OUTPUT = "JSON"
+output_format = "text"
+threshold = 10
