@@ -1,0 +1,2 @@
+LINTER_RULES = ["enable-unused", "enable-goconst", "disable-gocyclo", "disable-errcheck"]
+LINTER_OUTPUT = "JSON"
