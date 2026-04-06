@@ -1,2 +1,42 @@
-LINTER_RULES = ["enable-unused", "enable-goconst", "disable-gocyclo", "disable-errcheck"]
-LINTER_OUTPUT = "JSON"
+# go-strict Cognitive Complexity Linter Configuration
+threshold = 10
+output_format = "text"
+
+[rules]
+
+  [rules.cognitive_complexity]
+    enabled   = true
+    threshold = 10
+
+  [rules.function_length]
+    enabled   = true
+    weight    = 1
+    max_lines = 50
+
+  [rules.parameter_count]
+    enabled    = true
+    weight     = 1
+    max_params = 5
+
+  [rules.missing_comment]
+    enabled   = false
+    weight    = 1
+    min_lines = 10
+
+  [rules.nesting_depth]
+    enabled   = true
+    weight    = 1
+    max_depth = 4
+
+  [rules.logical_operators]
+    enabled = true
+    weight  = 1
+
+  [rules.generics]
+    enabled = true
+    weight  = 1
+
+  [rules.block_length]
+    enabled   = true
+    weight    = 1
+    min_lines = 10

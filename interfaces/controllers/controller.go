@@ -1,60 +1,33 @@
 package controllers
 
 import (
+	"net/http"
+
 	"github.com/MikeMwita/go-strict/internal/linter"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 type LintController struct {
-	linterService linter.LinterService
+	linterService *linter.LinterService
 }
 
-func (lc *LintController) LintFiles(c *gin.Context) {
-	files := c.QueryArray("files")
-	// check if the files or directories are given
-	if len(files) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "no files or directories given",
-		})
+func NewLintController(linterService *linter.LinterService) *LintController {
+	return &LintController{linterService: linterService}
+}
+
+// LintPaths lints the given file or directory paths.
+func (lc *LintController) LintPaths(c *gin.Context) {
+	paths := c.QueryArray("paths")
+	if len(paths) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no paths given"})
 		return
 	}
 
-	results, err := lc.linterService.LintFiles(files)
+	report, err := lc.linterService.LintPaths(paths)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
-}
-
-// LintFunctions is a handler that lints the given functions
-func (lc *LintController) LintFunctions(c *gin.Context) {
-	functions := c.QueryArray("functions")
-
-	if len(functions) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "no functions given",
-		})
-		return
-	}
-
-	results, err := lc.linterService.LintFunctions(functions)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, results)
-}
-
-func NewLintController(linterService linter.LinterService) *LintController {
-	return &LintController{
-		linterService: linterService,
-	}
+	c.JSON(http.StatusOK, report)
 }

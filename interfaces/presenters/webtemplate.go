@@ -1,33 +1,25 @@
 package presenters
 
 import (
-	"github.com/MikeMwita/go-strict/models"
 	"html/template"
 	"net/http"
+
+	"github.com/MikeMwita/go-strict/models"
 )
 
-// WebTemplate  renders the linting results as HTML
-
+// WebTemplate renders a LintReport as HTML.
 type WebTemplate struct {
-	template *template.Template // the HTML template
+	template *template.Template
 }
 
-// Render renders the linting results as HTML to the given response writer
-func (wt *WebTemplate) Render(w http.ResponseWriter, results []*models.LintResult) error {
-	err := wt.template.Execute(w, results)
-	if err != nil {
-		return err
-	}
-	return nil
+func (wt *WebTemplate) Render(w http.ResponseWriter, report *models.LintReport) error {
+	return wt.template.Execute(w, report)
 }
 
 func NewWebTemplate(templatePath string) (*WebTemplate, error) {
-	template, err := template.ParseFiles(templatePath)
+	t, err := template.ParseFiles(templatePath)
 	if err != nil {
 		return nil, err
 	}
-
-	return &WebTemplate{
-		template: template,
-	}, nil
+	return &WebTemplate{template: t}, nil
 }
