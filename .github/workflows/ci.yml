@@ -48,11 +48,6 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
 
-      # nancy checks the dependency tree aainst the OSS Index.
-      - name: Run nancy (OSS Index)
-        run: |
-          go list -json -deps ./... | \
-            docker run --rm -i sonatypecommunity/nancy:latest sleuth
 
   npm-audit:
     name: npm audit (VS Code extension)

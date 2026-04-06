@@ -70,8 +70,12 @@ func TestLintPaths_SkipsVendor(t *testing.T) {
 	if err := os.MkdirAll(vendor, 0755); err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(filepath.Join(vendor, "dep.go"), []byte("package dep\nfunc Dep() {}\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+	if err := os.WriteFile(filepath.Join(vendor, "dep.go"), []byte("package dep\nfunc Dep() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	report, err := newTestService().LintPaths([]string{dir})
 	if err != nil {
@@ -88,7 +92,9 @@ func A() {}
 func B() {}
 `
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "ab.go"), []byte(src), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "ab.go"), []byte(src), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	report, err := newTestService().LintPaths([]string{dir})
 	if err != nil {
