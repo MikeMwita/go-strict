@@ -2,194 +2,149 @@ package linter
 
 import (
 	"fmt"
-	"github.com/MikeMwita/go-strict/models"
-	"github.com/MikeMwita/go-strict/services/complexity"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+
+	"github.com/MikeMwita/go-strict/internal/complexity"
+	"github.com/MikeMwita/go-strict/models"
 )
 
-type Linter interface {
-	LintFiles(files []string) ([]*models.LintResult, error)
-	LintFunctions(functions []string) ([]*models.LintResult, error)
-}
-
+// LinterService orchestrates file discovery, parsing, and complexity
+// calculation. It processes files in parallel using a worker pool.
 type LinterService struct {
-	config     *models.LintConfig
-	complexity *complexity.ComplexityService
-	fileCount  int
-	funcCount  int
+	cfg     *models.LintConfig
+	workers int
 }
 
-func NewLinterService(config *models.LintConfig, complexity *complexity.ComplexityService) *LinterService {
-	return &LinterService{
-		config:     config,
-		complexity: complexity,
+// NewLinterService creates a LinterService with the given configuration.
+// Pass workers=0 to use runtime.NumCPU().
+func NewLinterService(cfg *models.LintConfig, workers int) *LinterService {
+	if workers <= 0 {
+		workers = runtime.NumCPU()
 	}
+	return &LinterService{cfg: cfg, workers: workers}
 }
 
-func createTempFile(functions []string) (*os.File, error) {
-	tmpFile, err := ioutil.TempFile("", "tempfunctions*.go")
+// LintPaths lints all .go files found under the given paths and returns a
+// LintReport.
+func (ls *LinterService) LintPaths(paths []string) (*models.LintReport, error) {
+	files, err := ls.collectFiles(paths)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temporary file: %w", err)
+		return nil, err
 	}
-
-	for _, function := range functions {
-		if _, err := tmpFile.WriteString(function + "\n\n"); err != nil {
-			return nil, fmt.Errorf("failed to write to temporary file: %w", err)
-		}
-	}
-
-	if err := tmpFile.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close temporary file: %w", err)
-	}
-
-	return tmpFile, nil
+	return ls.lintFiles(files)
 }
 
-func (ls *LinterService) LintFiles(files []string) ([]*models.LintResult, error) {
-	var results []*models.LintResult
-	fset := token.NewFileSet()
-
-	for _, file := range files {
-		err := filepath.Walk(file, func(path string, info os.FileInfo, err error) error {
+// collectFiles walks paths and gathers all .go source files, skipping vendor
+// and hidden directories.
+func (ls *LinterService) collectFiles(paths []string) ([]string, error) {
+	var files []string
+	for _, p := range paths {
+		err := filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				log.Printf("Error walking file tree: %v", err)
 				return err
 			}
-
-			if !info.IsDir() && strings.HasSuffix(info.Name(), ".go") {
-				fileResults, err := ls.lintGoFile(fset, path)
-				if err != nil {
-					log.Printf("Error linting Go file %s: %v", path, err)
-					return err
+			if info.IsDir() {
+				if info.Name() == "vendor" || strings.HasPrefix(info.Name(), ".") {
+					return filepath.SkipDir
 				}
-				results = append(results, fileResults...)
+				return nil
+			}
+			if strings.HasSuffix(info.Name(), ".go") &&
+				!strings.HasSuffix(info.Name(), "_test.go") {
+				files = append(files, path)
 			}
 			return nil
 		})
-
 		if err != nil {
-			log.Printf("Error walking file tree: %v", err)
-			return nil, err
+			return nil, fmt.Errorf("walking %s: %w", p, err)
 		}
 	}
-
-	return results, nil
+	return files, nil
 }
 
-func (ls *LinterService) LintFunctions(functions []string) ([]*models.LintResult, error) {
-	var results []*models.LintResult
+// lintFiles fans file paths out to a worker pool and aggregates results.
+func (ls *LinterService) lintFiles(files []string) (*models.LintReport, error) {
+	paths := make(chan string, len(files))
+	results := make(chan models.FileResult, len(files))
+	errs := make(chan error, len(files))
 
+	var wg sync.WaitGroup
+	for i := 0; i < ls.workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for path := range paths {
+				fr, err := ls.lintFile(path)
+				if err != nil {
+					errs <- err
+					continue
+				}
+				results <- fr
+			}
+		}()
+	}
+
+	for _, f := range files {
+		paths <- f
+	}
+	close(paths)
+
+	wg.Wait()
+	close(results)
+	close(errs)
+
+	for e := range errs {
+		log.Printf("lint error: %v", e)
+	}
+
+	report := &models.LintReport{
+		TotalFiles: len(files),
+		Threshold:  ls.cfg.Threshold,
+	}
+	for fr := range results {
+		report.Files = append(report.Files, fr)
+		for _, fn := range fr.Functions {
+			report.TotalFuncs++
+			report.AverageScore += float64(fn.Complexity)
+			if fn.Complexity > report.HighestScore {
+				report.HighestScore = fn.Complexity
+			}
+			if fn.Exceeded {
+				report.ComplexCount++
+			}
+		}
+	}
+	if report.TotalFuncs > 0 {
+		report.AverageScore /= float64(report.TotalFuncs)
+	}
+	return report, nil
+}
+
+// lintFile parses and analyses a single .go file.
+func (ls *LinterService) lintFile(path string) (models.FileResult, error) {
 	fset := token.NewFileSet()
-	tmpFile, err := createTempFile(functions)
+	f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
 	if err != nil {
-		return nil, err
+		return models.FileResult{}, fmt.Errorf("parse %s: %w", path, err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	f, err := parser.ParseFile(fset, tmpFile.Name(), nil, parser.ParseComments)
-	if err != nil {
-		return nil, err
-	}
+	fr := models.FileResult{File: path}
+	calc := complexity.NewCalculator(fset, f, ls.cfg)
 
 	for _, decl := range f.Decls {
-		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
-			funcResult, err := ls.lintFunction(fset, funcDecl)
-			if err != nil {
-				log.Printf("Error linting function %s: %v", funcDecl.Name.Name, err)
-				continue
-			}
-
-			if funcResult != nil {
-				results = append(results, funcResult)
-			}
+		fd, ok := decl.(*ast.FuncDecl)
+		if !ok || fd.Body == nil {
+			continue
 		}
+		fr.Functions = append(fr.Functions, calc.Calculate(fd))
 	}
-
-	return results, nil
-}
-
-func (ls *LinterService) lintGoFile(fset *token.FileSet, filePath string) ([]*models.LintResult, error) {
-	f, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
-	if err != nil {
-		log.Printf("Error parsing Go file %s: %v", filePath, err)
-		return nil, err
-	}
-
-	return ls.lintFile(fset, f)
-}
-
-func (ls *LinterService) lintFile(fset *token.FileSet, f *ast.File) ([]*models.LintResult, error) {
-	var fileResults []*models.LintResult
-	fileName := fset.File(f.Pos()).Name()
-
-	for _, decl := range f.Decls {
-		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
-			funcResult, err := ls.lintFunction(fset, funcDecl)
-			if err != nil {
-				return nil, err
-			}
-
-			if funcResult != nil {
-				funcResult.File = fileName
-				fileResults = append(fileResults, funcResult)
-			}
-		}
-	}
-
-	ls.fileCount++
-	return fileResults, nil
-}
-
-func (ls *LinterService) lintFunction(fset *token.FileSet, funcDecl *ast.FuncDecl) (*models.LintResult, error) {
-	if funcDecl.Body == nil {
-		return nil, nil
-	}
-
-	complexityScore, err := ls.complexity.Calculate(fset, funcDecl.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if complexityScore > ls.config.Threshold {
-		result := &models.LintResult{
-			File:     fset.Position(funcDecl.Pos()).Filename,
-			Line:     fset.Position(funcDecl.Pos()).Line,
-			Function: funcDecl.Name.Name,
-			Message:  fmt.Sprintf("function has a cognitive complexity of %d which is higher than the threshold of %d", complexityScore, ls.config.Threshold),
-			Severity: "warning",
-		}
-
-		details := ls.generateComplexityDetails(fset, funcDecl.Body)
-		result.Message = fmt.Sprintf("%s (Complexity details:\n%s)", result.Message, strings.Join(details, "\n"))
-
-		return result, nil
-	}
-	return nil, nil
-}
-
-func (ls *LinterService) generateComplexityDetails(fset *token.FileSet, body *ast.BlockStmt) []string {
-	var details []string
-	ast.Inspect(body, func(n ast.Node) bool {
-		switch node := n.(type) {
-		case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
-			line := fset.Position(node.Pos()).Line
-			score := ls.complexity.Complexity(node)
-			detail := fmt.Sprintf("+ %d (found at line: %d)", score, line)
-			details = append(details, detail)
-		case *ast.CaseClause:
-			line := fset.Position(node.Pos()).Line
-			score := ls.complexity.Complexity(node)
-			detail := fmt.Sprintf("+ %d (found 'case' at line: %d)", score, line)
-			details = append(details, detail)
-		}
-		return true
-	})
-	return details
+	return fr, nil
 }

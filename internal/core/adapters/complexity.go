@@ -3,16 +3,10 @@ package adapters
 import (
 	"go/ast"
 	"go/token"
+
+	"github.com/MikeMwita/go-strict/models"
 )
 
-type Complexity interface {
-	Calculate(fset *token.FileSet, node ast.Node) (int, error)
-}
-
 type ComplexityCalculator interface {
-	Calculate(fset *token.FileSet, body *ast.BlockStmt) (int, error)
-	If(stmt *ast.IfStmt) int
-	Loop(stmt ast.Node) int
-	Switch(stmt ast.Node) int
-	Case(stmt *ast.CaseClause) int
+	Calculate(fset *token.FileSet, file *ast.File, funcDecl *ast.FuncDecl) models.FunctionResult
 }

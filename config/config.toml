@@ -1,2 +1,59 @@
-output_format = "text"
+# go-strict Cognitive Complexity Linter Configuration
+# All rules can be individually enabled/disabled and tuned.
+
+# Global complexity threshold — functions exceeding this score are reported.
 threshold = 10
+
+# Output format: "text", "json", or "sarif"
+output_format = "text"
+
+# Optional: write results to a file instead of stdout
+# output_file = "complexity-report.txt"
+
+[rules]
+
+  # Core cognitive complexity scoring (control flow nesting).
+  [rules.cognitive_complexity]
+    enabled   = true
+    threshold = 10   # override global threshold for this rule only
+
+  # Flag functions longer than max_lines lines.
+  [rules.function_length]
+    enabled   = true
+    weight    = 1
+    max_lines = 50
+
+  # Flag functions with more than max_params parameters.
+  [rules.parameter_count]
+    enabled    = true
+    weight     = 1
+    max_params = 5
+
+  # Flag functions with >= min_lines that lack a correct doc comment.
+  # "Correct" means the comment starts with the function name.
+  [rules.missing_comment]
+    enabled   = false
+    weight    = 1
+    min_lines = 10
+
+  # Flag excessive nesting depth (tracked separately from cognitive score).
+  [rules.nesting_depth]
+    enabled   = true
+    weight    = 1
+    max_depth = 4
+
+  # Each contiguous sequence of && or || operators adds +1.
+  [rules.logical_operators]
+    enabled = true
+    weight  = 1
+
+  # Generic type parameters add +weight to complexity.
+  [rules.generics]
+    enabled = true
+    weight  = 1
+
+  # if/else blocks with >= min_lines lines each add +1 extra.
+  [rules.block_length]
+    enabled   = true
+    weight    = 1
+    min_lines = 10
