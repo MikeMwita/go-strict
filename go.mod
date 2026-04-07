@@ -3,7 +3,7 @@ module github.com/MikeMwita/go-strict
 go 1.25.8
 
 require (
-	github.com/BurntSushi/toml v1.3.2
+	github.com/BurntSushi/toml v1.6.0
 	github.com/gin-gonic/gin v1.12.0
 	golang.org/x/tools v0.43.0
 )
