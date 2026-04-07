@@ -1,0 +1,27 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# VS Code extension
+vscode-extension/go-linter/node_modules/
+vscode-extension/go-linter/*.vsix
+vscode-extension/go-linter/out/
+
+# Build output
+bin/
+dist/
+
+# Environment
+.env
+.env.*
+
+# IDE
+.idea/
+*.swp
+*.swo

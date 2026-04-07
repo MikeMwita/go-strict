@@ -2,7 +2,6 @@ package file
 
 import (
 	"io/fs"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -27,7 +26,7 @@ func Walker(filterDir, locFilter string, locDepth int) ([]string, error) {
 		return fileList, err
 	}
 	fsys := os.DirFS(filterDir)
-	fs.WalkDir(fsys, ".", func(filePath string, d fs.DirEntry, err error) error {
+	if err = fs.WalkDir(fsys, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -51,17 +50,15 @@ func Walker(filterDir, locFilter string, locDepth int) ([]string, error) {
 		}
 		fileList = append(fileList, filterDir+"/"+filePath)
 		return nil
-	})
-	return fileList, err
+	}); err != nil {
+		return nil, err
+	}
+	return fileList, nil
 }
 
 // TextWriter writes text content to a file.
 func TextWriter(content, filePath string) error {
-	err := ioutil.WriteFile(filePath, []byte(content), 0644)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.WriteFile(filePath, []byte(content), 0644)
 }
 
 // RootDir gets the root directory.
@@ -76,10 +73,7 @@ func RootDir() (string, error) {
 // DirExists checks if a directory exists.
 func DirExists(dirPath string) bool {
 	_, err := os.Stat(dirPath)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
+	return !os.IsNotExist(err)
 }
 
 // Benchmark function
